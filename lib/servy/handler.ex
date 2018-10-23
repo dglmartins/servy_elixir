@@ -1,58 +1,23 @@
-require Logger
-
 defmodule Servy.Handler do
+  @moduledoc "Handles HTTP requests"
+  # this defines a module attribute, so pages_path is now a constant that can be used anywhere in the module
+  @pages_path Path.expand("../../pages", __DIR__)
+
+  # the numbers in the import statment below refer to the airity of the function, so this imports all rewrite_paths that have airity of 1, so all of them
+  import Servy.Plugins, only: [rewrite_path: 1, log: 1, track: 1, emojify: 1]
+  import Servy.Parser, only: [parse: 1]
+  import Servy.FileHandler, only: [handle_file: 2]
+
+  @doc "Transforms requests into responses."
   def handle(request) do
     request
     |> parse
-    |> rewrite_path
-    |> log
+    |> rewrite_path()
+    |> log()
     |> route
-    |> emojify
-    |> track
+    |> emojify()
+    |> track()
     |> format_response
-  end
-
-  def track(%{status: 404, path: path} = conv) do
-    Logger.warn("#{path} is on the loose!")
-    conv
-  end
-
-  def emojify(%{status: 200} = conv) do
-    emojies = String.duplicate("👏", 5)
-    body = emojies <> "\n" <> conv.resp_body <> "\n" <> emojies
-    %{conv | resp_body: body}
-  end
-
-  def emojify(conv), do: conv
-
-  def track(conv), do: conv
-
-  def rewrite_path(%{path: "/wildlife"} = conv) do
-    %{conv | path: "/wildthings"}
-  end
-
-  def rewrite_path(%{path: path} = conv) do
-    regex = ~r{\/(?<thing>\w+)\?id=(?<id>\d+)}
-    captures = Regex.named_captures(regex, path)
-    rewrite_path_captures(conv, captures)
-  end
-
-  def rewrite_path_captures(conv, %{"thing" => thing, "id" => id}) do
-    %{conv | path: "/#{thing}/#{id}"}
-  end
-
-  def rewrite_path_captures(conv, nil), do: conv
-
-  def log(conv), do: IO.inspect(conv)
-
-  def parse(request) do
-    [method, path, _] =
-      request
-      |> String.split("\n")
-      |> List.first()
-      |> String.split(" ")
-
-    %{method: method, path: path, resp_body: "", status: nil}
   end
 
   # def route(conv) do
@@ -68,7 +33,7 @@ defmodule Servy.Handler do
   end
 
   def route(%{method: "GET", path: "/bears/new"} = conv) do
-    Path.expand("../../pages", __DIR__)
+    @pages_path
     |> Path.join("form.html")
     |> File.read()
     |> handle_file(conv)
@@ -79,7 +44,7 @@ defmodule Servy.Handler do
   end
 
   def route(%{method: "GET", path: "/pages/" <> page} = conv) do
-    Path.expand("../../pages", __DIR__)
+    @pages_path
     |> Path.join("#{page}.html")
     |> File.read()
     |> handle_file(conv)
@@ -90,18 +55,6 @@ defmodule Servy.Handler do
     |> Path.join("about.html")
     |> File.read()
     |> handle_file(conv)
-  end
-
-  def handle_file({:ok, content}, conv) do
-    %{conv | resp_body: content}
-  end
-
-  def handle_file({:error, :enoent}, conv) do
-    %{conv | status: 404, resp_body: "File not found!"}
-  end
-
-  def handle_file({:error, reason}, conv) do
-    %{conv | status: 500, resp_body: "File error #{reason}"}
   end
 
   # def route(%{method: "GET", path: "/about"} = conv) do
