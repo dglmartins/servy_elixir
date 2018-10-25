@@ -1,56 +1,81 @@
-defmodule Servy.FourOhFourCounter do
-  @process_name :four_oh_four_counter
-  def start(initial_state \\ %{}) do
-    IO.puts("Starting the 404 server...")
-    # module below links to the name of Servy.PledgeServer in case we change it
-    pid = spawn(__MODULE__, :listen_loop, [initial_state])
-    Process.register(pid, @process_name)
+defmodule Servy.GenericServerTwo do
+  def start(callback_module, initial_state, name) do
+    pid = spawn(__MODULE__, :listen_loop, [initial_state, callback_module])
+    Process.register(pid, name)
     pid
   end
 
-  def bump_count(path) do
-    send(@process_name, {self(), :bump_count, path})
+  def call(pid, message) do
+    send(pid, {:call, self(), message})
 
     receive do
-      {:response, count} -> count
+      {:response, response} -> response
     end
   end
 
-  def get_count(path) do
-    send(@process_name, {self(), :get_count, path})
-
-    receive do
-      {:response, count} -> count
-    end
+  def cast(pid, message) do
+    send(pid, {:cast, message})
   end
 
-  def get_counts() do
-    send(@process_name, {self(), :get_counts})
-
+  def listen_loop(state, callback_module) do
     receive do
-      {:response, counts} -> counts
-    end
-  end
+      {:call, sender, message} when is_pid(sender) ->
+        {response, new_state} = callback_module.handle_call(message, state)
+        send(sender, {:response, response})
+        listen_loop(new_state, callback_module)
 
-  def listen_loop(state) do
-    receive do
-      {sender, :bump_count, path} ->
-        new_state = Map.update(state, path, 1, &(&1 + 1))
-        send(sender, {:response, 1})
-        listen_loop(new_state)
-
-      {sender, :get_count, path} ->
-        count = Map.get(state, path, 0)
-        send(sender, {:response, count})
-        listen_loop(state)
-
-      {sender, :get_counts} ->
-        send(sender, {:response, state})
-        listen_loop(state)
+      {:cast, message} ->
+        new_state = callback_module.handle_cast(message, state)
+        listen_loop(new_state, callback_module)
 
       unexpected ->
         IO.puts("Unexpected message: #{inspect(unexpected)}")
-        listen_loop(state)
+        listen_loop(state, callback_module)
     end
+  end
+end
+
+defmodule Servy.FourOhFourCounter do
+  alias Servy.GenericServerTwo
+
+  @process_name :four_oh_four_counter
+
+  def start() do
+    IO.puts("Starting the 404 counter...")
+    GenericServerTwo.start(__MODULE__, %{}, @process_name)
+  end
+
+  def bump_count(path) do
+    GenericServerTwo.call(@process_name, {:bump_count, path})
+  end
+
+  def get_count(path) do
+    GenericServerTwo.call(@process_name, {:get_count, path})
+  end
+
+  def get_counts() do
+    GenericServerTwo.call(@process_name, :get_counts)
+  end
+
+  def reset() do
+    GenericServerTwo.cast(@process_name, :reset)
+  end
+
+  def handle_call({:bump_count, path}, state) do
+    new_state = Map.update(state, path, 1, &(&1 + 1))
+    {:ok, new_state}
+  end
+
+  def handle_call({:get_count, path}, state) do
+    count = Map.get(state, path, 0)
+    {count, state}
+  end
+
+  def handle_call(:get_counts, state) do
+    {state, state}
+  end
+
+  def handle_cast(:reset, state) do
+    %{}
   end
 end
