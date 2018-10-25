@@ -5,7 +5,7 @@ defmodule Servy.Handler do
   alias Servy.BearController
   alias Servy.VideoCam
   import Servy.View, only: [render: 3]
-  # alias Servy.Fetcher
+  alias Servy.FourOhFourCounter, as: Counter
 
   # this defines a module attribute, so pages_path is now a constant that can be used anywhere in the module
   @pages_path Path.expand("../../pages", __DIR__)
@@ -34,6 +34,18 @@ defmodule Servy.Handler do
   # def route(conv) do
   #   route(conv, conv.method, conv.path)
   # end
+
+  def route(%Conv{method: "POST", path: "/pledges"} = conv) do
+    Servy.PledgeController.create(conv, conv.params)
+  end
+
+  def route(%Conv{method: "GET", path: "/pledges/new"} = conv) do
+    Servy.PledgeController.new(conv)
+  end
+
+  def route(%Conv{method: "GET", path: "/pledges"} = conv) do
+    Servy.PledgeController.index(conv)
+  end
 
   def route(%Conv{method: "GET", path: "/sensors"} = conv) do
     # the request-handling process
@@ -144,6 +156,11 @@ defmodule Servy.Handler do
 
   def route(%Conv{method: "DELETE", path: "/bears/" <> id} = conv) do
     BearController.delete(conv, conv.params)
+  end
+
+  def route(%Conv{method: "GET", path: "/404s"} = conv) do
+    counts = Counter.get_counts()
+    %{conv | status: 200, resp_body: inspect(counts)}
   end
 
   def route(%Conv{path: path} = conv) do
