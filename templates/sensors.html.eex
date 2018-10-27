@@ -3,7 +3,7 @@
 <h2>Snapshots</h2>
 <ul>
   <%= for snapshot <- snapshots do %>
-    <li><img src="<%= snapshot %>" alt="snapshot"></li>
+    <li><img src="<%= snapshot %>" alt="<%= snapshot %>"></li>
   <% end %>
 </ul>
 
