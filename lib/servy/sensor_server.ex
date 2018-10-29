@@ -2,7 +2,7 @@ defmodule Servy.SensorServer do
   @name :sensor_server
 
   # :timer.minutes(60) for example in production
-  @refresh_interval :timer.seconds(20)
+  @refresh_interval :timer.minutes(60)
 
   use GenServer
 
@@ -12,8 +12,10 @@ defmodule Servy.SensorServer do
   end
 
   # client interface
-  def start do
-    GenServer.start(__MODULE__, %State{}, name: @name)
+  def start_link(interval) do
+    IO.puts("Starting the sensor server with #{interval} min refresh")
+    initial_state = %State{refresh_interval: :timer.minutes(interval)}
+    GenServer.start_link(__MODULE__, initial_state, name: @name)
   end
 
   def get_sensor_data do
